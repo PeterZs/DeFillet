@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
             easy3d::file_system::create_directory(params.out_dir);
         }
 
-        DeFillet::inverse_normalize_model(mesh, centroids, scale);
+        // DeFillet::inverse_normalize_model(mesh, centroids, scale);
         std::string base_name = easy3d::file_system::base_name(params.input_path);
         std::string res_dir = params.out_dir + "/" + base_name + "_" + DeFillet::get_time_stamp(true);
 

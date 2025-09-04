@@ -130,10 +130,10 @@ namespace DeFillet {
         int num_patches = parameters_.num_patches;
         std::vector<SurfaceMesh::Face> patch_centroids;
 
-        float max_gap = farthest_point_sampling(num_patches, patch_centroids);
+        float max_gap = farthest_point_sampling(num_patches, patch_centroids) ;
 
 
-        max_gap = 0.5 * M_PI * parameters_.radius_thr * box_.diagonal_length();
+        max_gap = 0.5 * M_PI * parameters_.radius_thr * box_.diagonal_length() * 1.2;
         int idx = 0;
 
         omp_lock_t lock;
@@ -150,8 +150,17 @@ namespace DeFillet {
 
             std::vector<vec3> ls = face_centroids(patch); // local sites;
 
+
+
             if(ls.size() < 10)
                 continue;
+
+
+            easy3d::PointCloud* cloud = new PointCloud;
+            for(int j = 0; j < ls.size(); j++) {
+                cloud->add_vertex(ls[j]);
+            }
+            easy3d::PointCloudIO::save("../patches/" + to_string(i) +".ply", cloud);
 
             std::vector<std::vector<int>> lsnv;   // local sites neighboring vertices;
             std::vector<float> lvvr; // vor_vertices_radius
@@ -160,6 +169,12 @@ namespace DeFillet {
 
 
             voronoi3d(ls, box_, lvv, lvvr,lsnv, lvns);
+
+            easy3d::PointCloud* cloud1 = new PointCloud;
+            for(int j = 0; j < lvv.size(); j++) {
+                cloud1->add_vertex(lvv[j]);
+            }
+            easy3d::PointCloudIO::save("../vor/" + to_string(i) +".ply", cloud1);
 
             for(size_t j = 0; j < lvv.size(); j++) {
 

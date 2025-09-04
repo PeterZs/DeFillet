@@ -1,16 +1,16 @@
 {
-  "path": "D:\\Sig25_DeFillet\\data\\my_data_1.ply",
+  "path": "D:\\Sig25_DeFillet\\data\\abc02.ply",
   "out_dir": "../out/",
   "epsilon": 0.06,
-  "radius_thr" : 0.03,
+  "radius_thr" : 0.02,
   "lamdba" : 0.01,
-  "angle_thr" : 40,
+  "angle_thr" : 60,
   "sigma" : 1.0,
-  "num_patches" : 11000,
+  "num_patches" : 500,
   "num_neighbors" : 30,
   "num_smmoth_iter": 50,
-  "num_sor_iter" : 3,
-  "num_sor_neighbors" : 10,
-  "num_sor_std_ratio" : 0.5,
+  "num_sor_iter" : 0,
+  "num_sor_neighbors" : 50,
+  "num_sor_std_ratio" : 0.6,
   "num_threads" : -1
 }
