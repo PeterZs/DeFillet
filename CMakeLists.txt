@@ -52,6 +52,4 @@ target_link_libraries(test_seg PUBLIC OpenMP::OpenMP_CXX CLI11::CLI11 nlohmann_j
 target_link_libraries(test_seg PUBLIC gcp)
 
 
-add_executable(test test.cpp)
-
 
