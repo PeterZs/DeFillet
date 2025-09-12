@@ -112,7 +112,7 @@ namespace DeFillet {
 
         compute_fillet_radius_rate_field();
 
-        rate_field_smoothing();
+        // rate_field_smoothing();
 
         graph_cut();
     }
@@ -128,88 +128,105 @@ namespace DeFillet {
         std::map<SurfaceMesh::Face, std::map<SurfaceMesh::Face, std::map<SurfaceMesh::Face,std::map<SurfaceMesh::Face,int>>>> unique;
 
         int num_patches = parameters_.num_patches;
-        std::vector<SurfaceMesh::Face> patch_centroids;
 
-        float max_gap = farthest_point_sampling(num_patches, patch_centroids) ;
+        if(num_patches == -1) {
+            std::vector<SurfaceMesh::Face> patch;
+            for(auto face : mesh_->faces()) {
+                patch.emplace_back(face);
+            }
+            std::vector<vec3> s = face_centroids(patch);
+            std::vector<std::vector<int>> snv;   // sites neighboring vertices;
+            std::vector<float> vvr; // vor_vertices_radius
+            std::vector<std::vector<int>> vns ; // vertices neighboring sites;
+            std::vector<easy3d::vec3> vv; // voronoi vertices;
+
+            voronoi3d(s, box_, vv, vvr,snv, vns);
+
+            for(int i = 0; i < vv.size(); i++) {
+                VoronoiVertices v;
+                v.pos = vv[i];
+                v.radius = vvr[i];
+                std::vector<easy3d::SurfaceMesh::Face> indices;
+                for(int j = 0; j < 4; j++) {
+                    indices.emplace_back(vns[i][j]);
+                }
+                v.neigh_sites = indices;
+                voronoi_vertices_.emplace_back(v);
+            }
+        }
+        else {
+            std::vector<SurfaceMesh::Face> patch_centroids;
+
+            float max_gap = farthest_point_sampling(num_patches, patch_centroids) ;
 
 
-        max_gap = 0.5 * M_PI * parameters_.radius_thr * box_.diagonal_length() * 1.2;
-        int idx = 0;
+            max_gap = 0.5 * M_PI * parameters_.radius_thr * box_.diagonal_length() * 1.2;
+            int idx = 0;
 
-        omp_lock_t lock;
-        omp_init_lock(&lock);
+            omp_lock_t lock;
+            omp_init_lock(&lock);
 
 #pragma omp parallel for
-        for(int i = 0; i < num_patches; i++) {
+            for(int i = 0; i < num_patches; i++) {
 
-            std::vector<SurfaceMesh::Face> patch;
+                std::vector<SurfaceMesh::Face> patch;
 
-            crop_local_patch(patch_centroids[i], max_gap, patch);
-
-
-
-            std::vector<vec3> ls = face_centroids(patch); // local sites;
+                crop_local_patch(patch_centroids[i], max_gap, patch);
 
 
 
-            if(ls.size() < 10)
-                continue;
+                std::vector<vec3> ls = face_centroids(patch); // local sites;
 
 
-            easy3d::PointCloud* cloud = new PointCloud;
-            for(int j = 0; j < ls.size(); j++) {
-                cloud->add_vertex(ls[j]);
-            }
-            easy3d::PointCloudIO::save("../patches/" + to_string(i) +".ply", cloud);
 
-            std::vector<std::vector<int>> lsnv;   // local sites neighboring vertices;
-            std::vector<float> lvvr; // vor_vertices_radius
-            std::vector<std::vector<int>> lvns ; // local vertices neighboring sites;
-            std::vector<easy3d::vec3> lvv; // local voronoi vertices;
+                if(ls.size() < 10)
+                    continue;
 
 
-            voronoi3d(ls, box_, lvv, lvvr,lsnv, lvns);
 
-            easy3d::PointCloud* cloud1 = new PointCloud;
-            for(int j = 0; j < lvv.size(); j++) {
-                cloud1->add_vertex(lvv[j]);
-            }
-            easy3d::PointCloudIO::save("../vor/" + to_string(i) +".ply", cloud1);
+                std::vector<std::vector<int>> lsnv;   // local sites neighboring vertices;
+                std::vector<float> lvvr; // vor_vertices_radius
+                std::vector<std::vector<int>> lvns ; // local vertices neighboring sites;
+                std::vector<easy3d::vec3> lvv; // local voronoi vertices;
 
-            for(size_t j = 0; j < lvv.size(); j++) {
 
-                std::vector<SurfaceMesh::Face> indices(4);
-                for(int k = 0; k < 4; k++) {
-                    indices[k] = patch[lvns[j][k]];
-                }
-                std::sort(indices.begin(), indices.end());
-                bool flag = true;
-                if(unique.find(indices[0]) != unique.end()) {
-                    auto& sub_mp1 = unique[indices[0]];
-                    if(sub_mp1.find(indices[1]) != sub_mp1.end()) {
-                        auto& sub_mp2 = sub_mp1[indices[1]];
-                        if(sub_mp2.find(indices[2]) != sub_mp2.end()) {
-                            auto& sub_mp3 = sub_mp2[indices[2]];
-                            if(sub_mp3.find(indices[3]) != sub_mp3.end()) {
-                                flag = false;
+                voronoi3d(ls, box_, lvv, lvvr,lsnv, lvns);
+
+
+                for(size_t j = 0; j < lvv.size(); j++) {
+
+                    std::vector<SurfaceMesh::Face> indices(4);
+                    for(int k = 0; k < 4; k++) {
+                        indices[k] = patch[lvns[j][k]];
+                    }
+                    std::sort(indices.begin(), indices.end());
+                    bool flag = true;
+                    if(unique.find(indices[0]) != unique.end()) {
+                        auto& sub_mp1 = unique[indices[0]];
+                        if(sub_mp1.find(indices[1]) != sub_mp1.end()) {
+                            auto& sub_mp2 = sub_mp1[indices[1]];
+                            if(sub_mp2.find(indices[2]) != sub_mp2.end()) {
+                                auto& sub_mp3 = sub_mp2[indices[2]];
+                                if(sub_mp3.find(indices[3]) != sub_mp3.end()) {
+                                    flag = false;
+                                }
                             }
                         }
                     }
-                }
-                if(flag && box_.contains(lvv[j])) {
-                    omp_set_lock(&lock);
+                    if(flag && box_.contains(lvv[j])) {
+                        omp_set_lock(&lock);
 
-                    VoronoiVertices vv;
-                    vv.pos = lvv[j];
-                    vv.radius = lvvr[j];
-                    vv.neigh_sites = indices;
-                    voronoi_vertices_.emplace_back(vv);
+                        VoronoiVertices vv;
+                        vv.pos = lvv[j];
+                        vv.radius = lvvr[j];
+                        vv.neigh_sites = indices;
+                        voronoi_vertices_.emplace_back(vv);
 
-                    unique[indices[0]][indices[1]][indices[2]][indices[3]] = idx++;
-                    omp_unset_lock(&lock);
+                        unique[indices[0]][indices[1]][indices[2]][indices[3]] = idx++;
+                        omp_unset_lock(&lock);
+                    }
                 }
             }
-
         }
 
         std::cout << "Successfully generated Voronoi vertices! Voronoi vertices number = " <<voronoi_vertices_.size() <<std::endl;
@@ -458,78 +475,78 @@ namespace DeFillet {
         }
 
 
-        std::vector<Sites> sites = sites_;
-        float angle_thr = parameters_.angle_thr;
-
-#pragma omp parallel for
-        for(int i = 0; i < sites_.size(); i++) {
-
-            if(sites_[i].flag)
-                continue;
-
-            std::priority_queue<pair<int,SurfaceMesh::Face>>que;
-            std::set<int> neigh;
-            std::set<SurfaceMesh::Face> vis;
-
-            que.push(make_pair(0, SurfaceMesh::Face(i)));
-            vis.insert(SurfaceMesh::Face(i));
-            while(!que.empty()) {
-                int step = que.top().first;
-                SurfaceMesh::Face cur = que.top().second; que.pop();
-
-                if(-step > 3) continue;
-                if(sites_[i].flag)
-                    neigh.insert(cur.idx());
-
-                if(neigh.size() > 2)
-                    break;
-
-                for(auto halfedge : mesh_->halfedges(cur)) {
-                    auto opp_face = mesh_->face(mesh_->opposite(halfedge));
-                    auto edge = mesh_->edge(halfedge);
-
-                    if(opp_face.is_valid() && vis.find(opp_face) == vis.end() && dihedral_angle_[edge] < angle_thr) {
-                        que.push(make_pair(step-1, opp_face));
-                        vis.insert(opp_face);
-                    }
-                }
-            }
-
-            if(!neigh.empty() &&neigh.size() <= 3) {
-                easy3d::vec3 center1(0, 0, 0);
-                easy3d::vec3 center2(0, 0, 0);
-                easy3d::vec3 axis(0, 0, 0);
-                float radius = 0;
-
-                for(auto idx : neigh) {
-                    center1 += project_to_line(sites_[i].pos, sites_[idx].center, sites_[idx].axis);
-                    center2 += sites_[idx].center;
-                    axis += sites_[idx].axis;
-                    radius += sites_[idx].radius;
-                }
-
-                center1 /= neigh.size();
-                center2 /= neigh.size();
-                radius /= neigh.size();
-                axis.normalize();
-
-                float err1 = fabs((sites_[i].pos -  center1).norm() - radius);
-                float err2 = fabs((sites_[i].pos -  center2).norm() - radius);
-
-                if(err1 < err2) {
-                    sites[i].center = center1;
-                    sites[i].radius = (sites_[i].pos -  center1).norm();
-                }
-                else {
-                    sites[i].center = center2;
-                    sites[i].radius = (sites_[i].pos -  center2).norm();
-                }
-                sites[i].axis = axis;
-                sites[i].flag = true;
-            }
-        }
-
-        sites_ = sites;
+//         std::vector<Sites> sites = sites_;
+//         float angle_thr = parameters_.angle_thr;
+//
+// #pragma omp parallel for
+//         for(int i = 0; i < sites_.size(); i++) {
+//
+//             if(sites_[i].flag)
+//                 continue;
+//
+//             std::priority_queue<pair<int,SurfaceMesh::Face>>que;
+//             std::set<int> neigh;
+//             std::set<SurfaceMesh::Face> vis;
+//
+//             que.push(make_pair(0, SurfaceMesh::Face(i)));
+//             vis.insert(SurfaceMesh::Face(i));
+//             while(!que.empty()) {
+//                 int step = que.top().first;
+//                 SurfaceMesh::Face cur = que.top().second; que.pop();
+//
+//                 if(-step > 3) continue;
+//                 if(sites_[i].flag)
+//                     neigh.insert(cur.idx());
+//
+//                 if(neigh.size() > 2)
+//                     break;
+//
+//                 for(auto halfedge : mesh_->halfedges(cur)) {
+//                     auto opp_face = mesh_->face(mesh_->opposite(halfedge));
+//                     auto edge = mesh_->edge(halfedge);
+//
+//                     if(opp_face.is_valid() && vis.find(opp_face) == vis.end() && dihedral_angle_[edge] < angle_thr) {
+//                         que.push(make_pair(step-1, opp_face));
+//                         vis.insert(opp_face);
+//                     }
+//                 }
+//             }
+//
+//             if(!neigh.empty() &&neigh.size() <= 3) {
+//                 easy3d::vec3 center1(0, 0, 0);
+//                 easy3d::vec3 center2(0, 0, 0);
+//                 easy3d::vec3 axis(0, 0, 0);
+//                 float radius = 0;
+//
+//                 for(auto idx : neigh) {
+//                     center1 += project_to_line(sites_[i].pos, sites_[idx].center, sites_[idx].axis);
+//                     center2 += sites_[idx].center;
+//                     axis += sites_[idx].axis;
+//                     radius += sites_[idx].radius;
+//                 }
+//
+//                 center1 /= neigh.size();
+//                 center2 /= neigh.size();
+//                 radius /= neigh.size();
+//                 axis.normalize();
+//
+//                 float err1 = fabs((sites_[i].pos -  center1).norm() - radius);
+//                 float err2 = fabs((sites_[i].pos -  center2).norm() - radius);
+//
+//                 if(err1 < err2) {
+//                     sites[i].center = center1;
+//                     sites[i].radius = (sites_[i].pos -  center1).norm();
+//                 }
+//                 else {
+//                     sites[i].center = center2;
+//                     sites[i].radius = (sites_[i].pos -  center2).norm();
+//                 }
+//                 sites[i].axis = axis;
+//                 sites[i].flag = true;
+//             }
+//         }
+//
+//         sites_ = sites;
 
         std::cout << "The consumption time of rolling-ball trajectory transform: " << sw.elapsed_seconds(5) << std::endl;
 
@@ -970,7 +987,7 @@ namespace DeFillet {
             }
         }
 
-        if(count_boundaries_components(boundaries) < 3 ) {
+        if(count_boundaries_components(boundaries) < 2 ) {
             return 2;
         }
 
