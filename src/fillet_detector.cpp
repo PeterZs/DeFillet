@@ -420,133 +420,36 @@ namespace DeFillet {
         easy3d::StopWatch sw;
         omp_lock_t lock;
         omp_init_lock(&lock);
+        float eps = parameters_.epsilon;
 
-#pragma omp parallel for
+        std::vector<float> min_value(sites_.size(), std::numeric_limits<float>::max());
+        std::vector<int> min_id(sites_.size(), -1);
+        std::vector<int> count(sites_.size(), 0);
         for(int i = 0; i < voronoi_vertices_.size(); i++) {
-
             auto& corr_sites = voronoi_vertices_[i].corr_sites;
 
             for(int j = 0; j < corr_sites.size(); j++) {
                 auto idx = corr_sites[j].idx();
-                omp_set_lock(&lock);
-                sites_[idx].corr_vv.emplace_back(i);
-                omp_unset_lock(&lock);
+                if(min_value[idx] > voronoi_vertices_[i].density) {
+                    min_value[idx] = voronoi_vertices_[i].density;
+                    min_id[idx] = i;
+                }
+                ++count[idx];
             }
         }
 
-        float eps = parameters_.epsilon;
 
 #pragma omp parallel for
         for(int i = 0; i < sites_.size(); i++) {
-            auto& corr_vv = sites_[i].corr_vv;
-            int count = corr_vv.size();
-
-            if(count < 3) { // trick
-                continue;
-            }
-
-
-            float min_value = 1e9;
-            int min_id = 0;
-            for(int j = 0; j < corr_vv.size(); j++) {
-
-                int idx = corr_vv[j];
-                if(min_value > voronoi_vertices_[idx].density) {
-                    min_value = voronoi_vertices_[idx].density;
-                    min_id = idx;
-                }
-            }
-
-            easy3d::vec3 center = project_to_line(sites_[i].pos, voronoi_vertices_[min_id].pos, voronoi_vertices_[min_id].axis);
-            double err = fabs((sites_[i].pos - center).norm() - voronoi_vertices_[min_id].radius);
-            if(err < voronoi_vertices_[min_id].radius * eps / 2) {
-                sites_[i].center = center;
-                sites_[i].axis = voronoi_vertices_[min_id].axis;
-                sites_[i].radius = (sites_[i].pos - sites_[i].center).norm();
+            if(min_id[i] != -1 && count[i] > 3) { // count[i] > 3 is trick for stable
+                int id = min_id[i];
+                sites_[i].center = voronoi_vertices_[id].pos;
+                sites_[i].radius = voronoi_vertices_[id].radius;
+                sites_[i].axis = voronoi_vertices_[id].axis;
                 sites_[i].flag = true;
             }
-            else {
-                sites_[i].center = voronoi_vertices_[min_id].pos;
-                sites_[i].radius = voronoi_vertices_[min_id].radius;
-                sites_[i].axis = voronoi_vertices_[min_id].axis;
-                sites_[i].flag = true;
-            }
-
         }
 
-
-//         std::vector<Sites> sites = sites_;
-//         float angle_thr = parameters_.angle_thr;
-//
-// #pragma omp parallel for
-//         for(int i = 0; i < sites_.size(); i++) {
-//
-//             if(sites_[i].flag)
-//                 continue;
-//
-//             std::priority_queue<pair<int,SurfaceMesh::Face>>que;
-//             std::set<int> neigh;
-//             std::set<SurfaceMesh::Face> vis;
-//
-//             que.push(make_pair(0, SurfaceMesh::Face(i)));
-//             vis.insert(SurfaceMesh::Face(i));
-//             while(!que.empty()) {
-//                 int step = que.top().first;
-//                 SurfaceMesh::Face cur = que.top().second; que.pop();
-//
-//                 if(-step > 3) continue;
-//                 if(sites_[i].flag)
-//                     neigh.insert(cur.idx());
-//
-//                 if(neigh.size() > 2)
-//                     break;
-//
-//                 for(auto halfedge : mesh_->halfedges(cur)) {
-//                     auto opp_face = mesh_->face(mesh_->opposite(halfedge));
-//                     auto edge = mesh_->edge(halfedge);
-//
-//                     if(opp_face.is_valid() && vis.find(opp_face) == vis.end() && dihedral_angle_[edge] < angle_thr) {
-//                         que.push(make_pair(step-1, opp_face));
-//                         vis.insert(opp_face);
-//                     }
-//                 }
-//             }
-//
-//             if(!neigh.empty() &&neigh.size() <= 3) {
-//                 easy3d::vec3 center1(0, 0, 0);
-//                 easy3d::vec3 center2(0, 0, 0);
-//                 easy3d::vec3 axis(0, 0, 0);
-//                 float radius = 0;
-//
-//                 for(auto idx : neigh) {
-//                     center1 += project_to_line(sites_[i].pos, sites_[idx].center, sites_[idx].axis);
-//                     center2 += sites_[idx].center;
-//                     axis += sites_[idx].axis;
-//                     radius += sites_[idx].radius;
-//                 }
-//
-//                 center1 /= neigh.size();
-//                 center2 /= neigh.size();
-//                 radius /= neigh.size();
-//                 axis.normalize();
-//
-//                 float err1 = fabs((sites_[i].pos -  center1).norm() - radius);
-//                 float err2 = fabs((sites_[i].pos -  center2).norm() - radius);
-//
-//                 if(err1 < err2) {
-//                     sites[i].center = center1;
-//                     sites[i].radius = (sites_[i].pos -  center1).norm();
-//                 }
-//                 else {
-//                     sites[i].center = center2;
-//                     sites[i].radius = (sites_[i].pos -  center2).norm();
-//                 }
-//                 sites[i].axis = axis;
-//                 sites[i].flag = true;
-//             }
-//         }
-//
-//         sites_ = sites;
 
         std::cout << "The consumption time of rolling-ball trajectory transform: " << sw.elapsed_seconds(5) << std::endl;
 
@@ -713,10 +616,12 @@ namespace DeFillet {
         for(auto edge : mesh_->edges()) {
             auto face0 = mesh_->face(edge, 0);
             auto face1 = mesh_->face(edge, 1);
-            float edge_len = mesh_->edge_length(edge);
-            int id0 = face0.idx(), id1 = face1.idx();
-            edges.emplace_back(std::make_pair(id0, id1));
-            edge_sum += edge_len;
+            if(face0.is_valid() && face1.is_valid()) {
+                float edge_len = mesh_->edge_length(edge);
+                int id0 = face0.idx(), id1 = face1.idx();
+                edges.emplace_back(std::make_pair(id0, id1));
+                edge_sum += edge_len;
+            }
         }
 
 
@@ -879,7 +784,7 @@ namespace DeFillet {
                     auto opp_face = mesh_->face(mesh_->opposite(halfedge));
                     auto edge = mesh_->edge(halfedge);
 
-                    if(vis.find(opp_face) == vis.end()) {
+                    if(opp_face.is_valid() && vis.find(opp_face) == vis.end()) {
                         float val = centroid_distance_[edge];
                         if(dis[opp_face.idx()] > -cur_dis + val && dihedral_angle_[edge] < angle_thr) {
                             que.push(std::make_pair(cur_dis - val, opp_face));

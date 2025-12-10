@@ -82,6 +82,12 @@ int main(int argc, char **argv) {
 
         DeFillet::save_fillet_segmentation(mesh, fillet_labels, res_dir + "/"+ base_name +"_seg.ply");
 
+        DeFillet::save_detector_config(params, res_dir + "/" + base_name + "_param.json");
+
+        DeFillet::save_fillet_labels(fillet_labels, res_dir + "/" + base_name + "_seg.json");
+
+
+
     } catch (const std::exception &e) {
         std::cerr << e.what() << std::endl;
     }

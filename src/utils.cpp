@@ -59,6 +59,45 @@ namespace DeFillet {
     }
 
 
+    void save_detector_config(const FilletDetectorParameters &params, const std::string &filename) {
+        using json = nlohmann::json;
+        json j;
+
+        // 映射 类成员 → JSON Key
+        // 注意：Key 必须与 load 函数中读取的字符串完全一致
+        j["path"]            = params.input_path;
+        j["out_dir"]         = params.out_dir;
+
+        j["epsilon"]         = params.epsilon;
+        j["radius_thr"]      = params.radius_thr;
+        j["lamdba"]          = params.lamdba;
+        j["angle_thr"]       = params.angle_thr;
+        j["sigma"]           = params.sigma;
+
+        j["num_patches"]     = params.num_patches;
+        j["num_neighbors"]   = params.num_neighbors;
+
+        // 为了保持与读取函数的兼容性，这里必须保留拼写错误 "smmoth"
+        // 如果你决定修复 JSON 格式，请记得同时修改读取函数
+        j["num_smmoth_iter"] = params.num_smooth_iter;
+
+        j["num_sor_iter"]      = params.num_sor_iter;
+        j["num_sor_neighbors"] = params.num_sor_neighbors;
+        j["num_sor_std_ratio"] = params.num_sor_std_ratio;
+        j["num_threads"]       = params.num_threads;
+
+        // 打开文件写入
+        std::ofstream f(filename);
+        if (!f.is_open()) {
+            throw std::runtime_error("Failed to open file for writing: " + filename);
+        }
+
+        f << j.dump(4);
+    }
+
+
+
+
     void normalize_model(easy3d::SurfaceMesh* mesh, easy3d::vec3& centroids, double& scale) {
         if (!mesh || mesh->n_vertices() == 0)
             return;
@@ -395,6 +434,17 @@ namespace DeFillet {
         }
         SurfaceMeshIO::save(path, out_mesh);
 
+    }
+
+
+    void save_fillet_labels(std::vector<int>& labels, const std::string& path) {
+        std::ofstream f(path);
+        if (!f.is_open()) {
+            throw std::runtime_error("Failed to open file: " + path);
+        }
+
+        nlohmann::json j = labels;
+        f << j.dump();
     }
 
 }

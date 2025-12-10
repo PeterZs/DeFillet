@@ -16,6 +16,8 @@ namespace DeFillet {
 
     FilletDetectorParameters load_detector_config(const std::string &filename);
 
+    void save_detector_config(const FilletDetectorParameters &params, const std::string &filename);
+
     void normalize_model(easy3d::SurfaceMesh* mesh, easy3d::vec3& centroids, double& scale);
 
     void inverse_normalize_model(easy3d::SurfaceMesh* model, easy3d::vec3& centroids, double& scale);
@@ -63,6 +65,9 @@ namespace DeFillet {
     void save_fillet_segmentation(const easy3d::SurfaceMesh* mesh,
                              const std::vector<int>& fillet_label,
                              const std::string path);
+
+
+    void save_fillet_labels(std::vector<int>& labels, const std::string& path);
 
 
 

@@ -53,7 +53,6 @@ namespace DeFillet {
 
         float rate;
 
-        std::vector<int> corr_vv; //corresponding Voronoi vertices
 
         vec3 center; //rolling-ball center
 
