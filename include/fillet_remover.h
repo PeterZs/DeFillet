@@ -27,6 +27,7 @@ namespace DeFillet {
         std::string input_path;
         std::string out_dir;
         float beta, gamma;
+        float angle_thr;
         int num_opt_iter;
 
         int num_threads;
@@ -40,6 +41,9 @@ namespace DeFillet {
         void apply();
     public:
         easy3d::SurfaceMesh* mesh_;
+        easy3d::SurfaceMesh* focus_area_;
+        easy3d::SurfaceMesh* fillet_mesh_;
+        easy3d::SurfaceMesh* non_fillet_mesh_;
         FilletRemoverParameters parameters_;
 
     };
