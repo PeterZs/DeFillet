@@ -7,7 +7,7 @@
 #include <fillet_detector.h>
 #include <voronoi3d.h>
 #include <utils.h>
-#include <knn4d.h>
+// #include <knn4d.h>
 #include <gcp.h>
 
 #include <easy3d/util/stop_watch.h>

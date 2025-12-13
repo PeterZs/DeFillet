@@ -25,8 +25,9 @@ namespace DeFillet {
 
     public:
         std::string input_path;
+        std::string label_path;
         std::string out_dir;
-        float beta, gamma;
+        float beta_e, beta_f, beta_c;
         float angle_thr;
         int num_opt_iter;
 
@@ -35,16 +36,21 @@ namespace DeFillet {
 
     class FilletRemover {
     public:
-        FilletRemover(FilletRemoverParameters& parameters);
-        void initialize(easy3d::SurfaceMesh* mesh, const std::vector<int>& fillet_labels);
+        FilletRemover();
+        void initialize(easy3d::SurfaceMesh* mesh, FilletRemoverParameters& parameters, const std::vector<int>& fillet_labels);
         void optimize();
-        void apply();
     public:
         easy3d::SurfaceMesh* mesh_;
+        easy3d::SurfaceMesh* defillet_mesh_;
         easy3d::SurfaceMesh* focus_area_;
         easy3d::SurfaceMesh* fillet_mesh_;
         easy3d::SurfaceMesh* non_fillet_mesh_;
         FilletRemoverParameters parameters_;
+        std::vector<std::pair<easy3d::vec3, easy3d::vec3>> tar_normals;
+
+
+        Eigen::SparseLU<Eigen::SparseMatrix<double>> solver_;
+        Eigen::VectorXd d_;
 
     };
 }

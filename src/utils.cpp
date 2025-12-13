@@ -10,7 +10,7 @@
 
 
 #include <utils.h>
-#include <knn4d.h>
+// #include <knn4d.h>
 
 #include <Eigen/Dense>
 
@@ -19,6 +19,94 @@
 
 using namespace easy3d;
 using namespace std;
+
+
+namespace KNN {
+
+// 定义 KD 树适配器
+    class PointCloud4D {
+    public:
+        PointCloud4D(const std::vector<Point4D>* points) : pts(points) {}
+        const std::vector<Point4D>* pts;
+
+        // 提取点云数据
+        inline size_t kdtree_get_point_count() const { return pts->size(); }
+
+        // 访问第 idx 个点的坐标
+        inline double kdtree_get_pt(const size_t idx, const size_t dim) const {
+            return pts->at(idx).p[dim];
+        }
+
+        // 回调函数：计算点之间的距离的平方
+        template<class BBOX>
+        bool kdtree_get_bbox(BBOX &) const { return false; }
+    };
+
+    struct KdTree4D : public nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, PointCloud4D>, PointCloud4D, 4, int> {
+        KdTree4D(PointCloud4D* cloud) :
+        KDTreeSingleIndexAdaptor< nanoflann::L2_Simple_Adaptor<double, PointCloud4D>, PointCloud4D, 4, int >(4,
+                                                                                                         *cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10)){}
+        ~KdTree4D() {
+//            delete cloud_;
+        }
+
+        PointCloud4D* cloud_;
+    };
+
+    #define get_tree4D(x) (reinterpret_cast<const KdTree4D *>(x))
+
+    KdSearch4D::KdSearch4D(std::vector<Point4D>& points) {
+        points_ =  const_cast< std::vector<Point4D>* >(&points);
+
+        PointCloud4D* cloud = new PointCloud4D(points_);
+        KdTree4D* tree = new KdTree4D(cloud);
+        tree->buildIndex();
+        tree_ = tree;
+    }
+
+    KdSearch4D::~KdSearch4D() {
+        delete get_tree4D(tree_);
+    }
+
+    // int KdSearch4D::radius_search(const Point4D& p, double radius, std::vector<size_t> &neighbors,
+    //                              std::vector<double> &squared_distances) const {
+    //     std::vector<std::pair<int , double> > matches;
+    //     nanoflann::SearchParams params;
+    //     params.sorted = true;
+    //     const std::size_t num = get_tree(tree_)->radiusSearch(p.p, radius, matches, params);
+    //
+    //     neighbors.resize(num);
+    //     squared_distances.resize(num);
+    //     for (std::size_t i = 0; i < num; ++i) {
+    //         const std::pair<std::size_t, float>& e = matches[i];
+    //         neighbors[i] = e.first;
+    //         squared_distances[i] = e.second;
+    //     }
+    //
+    //     return (int)neighbors.size();
+    // }
+
+    void KdSearch4D::kth_search(const Point4D &p, int k, std::vector<size_t> &neighbors,
+                              std::vector<double> &squared_distances) const {
+        std::vector<int> indices(k);
+        std::vector<double> distances(k);
+
+        // float distances[k];
+        // result_set.init(&indices[0], &sqr_distances[0]);
+        get_tree4D(tree_)->knnSearch(&p.p[0], k, &indices[0], &distances[0]);
+        neighbors.resize(k);
+        squared_distances.resize(k);
+        for(int i = 0; i < k; i++) {
+            neighbors[i] = indices[i];
+            squared_distances[i] = distances[i];
+        }
+        // get_tree(tree_)->findNeighbors(result_set, p.p,  nanoflann::SearchParams(k));
+    }
+}
+
+
+
+
 
 namespace DeFillet {
 
@@ -47,8 +135,7 @@ namespace DeFillet {
 
         params.num_patches      = j.value("num_patches", 0);
         params.num_neighbors    = j.value("num_neighbors", 0);
-        // 注意 JSON 里是 num_smmoth_iter（拼写错了），这里兼容处理
-        params.num_smooth_iter  = j.value("num_smmoth_iter", 0);
+        params.num_smooth_iter  = j.value("num_smooth_iter", 0);
 
         params.num_sor_iter     = j.value("num_sor_iter", 0);
         params.num_sor_neighbors= j.value("num_sor_neighbors", 0);
@@ -95,6 +182,59 @@ namespace DeFillet {
         f << j.dump(4);
     }
 
+    FilletRemoverParameters load_remover_config(const std::string& filename) {
+        FilletRemoverParameters params;
+        std::ifstream f(filename);
+        if (!f.is_open()) {
+            throw std::runtime_error("Failed to open JSON file: " + filename);
+        }
+        using json = nlohmann::json;
+        json j;
+        f >> j;
+
+        params.input_path       = j.value("path", "");
+        params.out_dir          = j.value("out_dir", "");
+        params.label_path       = j.value("label_path", "");
+        params.beta_e             = j.value("beta_e", 1.0f);
+        params.beta_f             = j.value("beta_f", 1.0f);
+        params.beta_c            = j.value("beta_c", 1.0f);
+        params.angle_thr        = j.value("angle_thr", 0.0f);
+        // 注意 JSON 里是 num_smmoth_iter（拼写错了），这里兼容处理
+        params.num_opt_iter  = j.value("num_opt_iter", 0);
+
+        params.num_threads = j.value("num_threads", 4);
+
+        return params;
+    }
+
+    void save_remover_config(const FilletRemoverParameters& params, const std::string& filename) {
+        using json = nlohmann::json;
+        json j;
+
+        // 将结构体字段映射到 JSON 键值对
+        // 注意：键名（Key）需要与 load 函数中读取的键名保持一致
+        j["path"]           = params.input_path;
+        j["label_path"]       =  params.label_path;
+        j["out_dir"]        = params.out_dir;
+
+        j["beta_e"]           = params.beta_e;
+        j["beta_f"]          = params.beta_f;
+        j["beta_c"]          = params.beta_c;
+        j["angle_thr"]      = params.angle_thr;
+
+        j["num_opt_iter"]   = params.num_opt_iter;
+
+        j["num_threads"]    = params.num_threads;
+
+        std::ofstream f(filename);
+        if (!f.is_open()) {
+            throw std::runtime_error("Failed to open file for writing: " + filename);
+        }
+
+        f << j.dump(4);
+
+        f.close();
+    }
 
 
 
@@ -437,6 +577,22 @@ namespace DeFillet {
     }
 
 
+    std::vector<int> load_fillet_labels(const std::string& path) {
+        std::ifstream f(path);
+        if (!f.is_open()) {
+            throw std::runtime_error("Failed to open file: " + path);
+        }
+
+        nlohmann::json j;
+        f >> j;
+
+        if (!j.is_array()) {
+            throw std::runtime_error("File content is not a JSON array: " + path);
+        }
+
+        return j.get<std::vector<int>>();
+    }
+
     void save_fillet_labels(std::vector<int>& labels, const std::string& path) {
         std::ofstream f(path);
         if (!f.is_open()) {
@@ -447,5 +603,23 @@ namespace DeFillet {
         f << j.dump();
     }
 
+    void save_target_normals(std::vector<std::pair<easy3d::vec3, easy3d::vec3>>& tar_normals, std::string path) {
+        std::ofstream out(path);
+        int v_idx = 1;
+        for(auto item : tar_normals) {
+            auto s = item.first;
+            auto t = item.second;
+            out << "v " << s.x << " " << s.y << " " << s.z << "\n";
+            out << "v " << t.x << " " << t.y << " " << t.z << "\n";
+            out << "l " << v_idx << " " << v_idx + 1 << "\n";
+            v_idx += 2;
+        }
+        out.close();
+    }
+
 }
+
+
+
+
 

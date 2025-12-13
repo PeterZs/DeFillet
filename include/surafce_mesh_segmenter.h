@@ -10,8 +10,8 @@
 namespace easy3d {
     class SurfaceMeshSegmenter {
     public:
-        SurfaceMeshSegmenter(easy3d::SurfaceMesh* mesh);
-        ~SurfaceMeshSegmenter();
+        SurfaceMeshSegmenter(easy3d::SurfaceMesh* mesh): mesh_(mesh){}
+        ~SurfaceMeshSegmenter() {}
 
         template<typename FT>
         SurfaceMesh* segment(const SurfaceMesh::FaceProperty<FT>& segments, FT label) {

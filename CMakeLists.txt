@@ -31,7 +31,7 @@ add_subdirectory(gcp)
 add_subdirectory(geodesic)
 
 
-set(DETECTOR_SRCS src/fillet_detector.cpp src/utils.cpp src/knn4d.cpp)
+set(DETECTOR_SRCS src/fillet_detector.cpp src/utils.cpp)
 
 # cli
 add_executable(detector_cli cli/detector_cli.cpp ${DETECTOR_SRCS})
@@ -41,29 +41,11 @@ target_link_libraries(detector_cli PUBLIC easy3d::algo easy3d::core easy3d::file
 target_link_libraries(detector_cli PUBLIC OpenMP::OpenMP_CXX CLI11::CLI11 nlohmann_json::nlohmann_json)
 target_link_libraries(detector_cli PUBLIC gcp)
 
-set(REMOVER_SRCS src/fillet_remover.cpp)
+set(REMOVER_SRCS src/fillet_remover.cpp src/utils.cpp)
 add_executable(removal_cli cli/removal_cli.cpp ${REMOVER_SRCS})
 target_include_directories(removal_cli PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(removal_cli PRIVATE Eigen3::Eigen igl::igl_core)
 target_link_libraries(removal_cli PUBLIC easy3d::algo easy3d::core easy3d::fileio easy3d::util)
 target_link_libraries(removal_cli PUBLIC OpenMP::OpenMP_CXX CLI11::CLI11 nlohmann_json::nlohmann_json)
 target_link_libraries(removal_cli PUBLIC geodesic)
-
-# test
-add_executable(test_seg test/test_seg.cpp ${DETECTOR_SRCS})
-target_include_directories(test_seg PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(test_seg PRIVATE CGAL::CGAL Eigen3::Eigen igl::igl_core)
-target_link_libraries(test_seg PUBLIC easy3d::algo easy3d::core easy3d::fileio)
-target_link_libraries(test_seg PUBLIC OpenMP::OpenMP_CXX CLI11::CLI11 nlohmann_json::nlohmann_json)
-target_link_libraries(test_seg PUBLIC gcp)
-
-add_executable(test_rem test/test_rem.cpp ${REMOVER_SRCS})
-target_include_directories(test_rem PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(test_rem PRIVATE Eigen3::Eigen igl::igl_core)
-target_link_libraries(test_rem PUBLIC easy3d::algo easy3d::core easy3d::fileio)
-target_link_libraries(test_rem PUBLIC OpenMP::OpenMP_CXX CLI11::CLI11 nlohmann_json::nlohmann_json)
-
-#add_executable(test_vsa test/test_vsa.cpp)
-#target_link_libraries(test_vsa PRIVATE CGAL::CGAL Eigen3::Eigen igl::igl_core)
-#target_link_libraries(test_vsa PUBLIC easy3d::algo easy3d::core easy3d::fileio)
 

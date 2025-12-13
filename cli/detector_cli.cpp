@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
 
         // DeFillet::inverse_normalize_model(mesh, centroids, scale);
         std::string base_name = easy3d::file_system::base_name(params.input_path);
-        std::string res_dir = params.out_dir + "/" + base_name + "_" + DeFillet::get_time_stamp(true);
+        std::string res_dir = params.out_dir + "/" + base_name + "_detector_" + DeFillet::get_time_stamp(true);
 
         easy3d::file_system::create_directory(res_dir);
         easy3d::PointCloud* vv = detector.voronoi_vertices();

@@ -9,6 +9,32 @@
 #include <easy3d/core/surface_mesh.h>
 
 #include <fillet_detector.h>
+#include <fillet_remover.h>
+
+
+#include "nanoflann.hpp"
+namespace KNN {
+    struct Point4D {
+        double p[4];
+        Point4D(double x = 0.0, double y = 0.0, double z = 0.0, double w = 0.0) {
+            p[0] = x;p[1] = y;p[2] = z; p[3] = w;
+        }
+    };
+
+    class KdSearch4D {
+    public:
+        KdSearch4D(std::vector<Point4D>& points);
+        ~KdSearch4D();
+        // int radius_search(const Point4D& p, double squared_radius, std::vector<size_t> &neighbors,
+        //         std::vector<double> &squared_distances) const;
+        void kth_search(const Point4D& p, int k, std::vector<size_t> &neighbors,
+                        std::vector<double> &squared_distances) const;
+    protected:
+        std::vector<Point4D>* points_;
+        void* tree_;
+    };
+}
+
 
 
 namespace DeFillet {
@@ -17,6 +43,10 @@ namespace DeFillet {
     FilletDetectorParameters load_detector_config(const std::string &filename);
 
     void save_detector_config(const FilletDetectorParameters &params, const std::string &filename);
+
+    FilletRemoverParameters load_remover_config(const std::string &filename);
+
+    void save_remover_config(const FilletRemoverParameters& params, const std::string& filename);
 
     void normalize_model(easy3d::SurfaceMesh* mesh, easy3d::vec3& centroids, double& scale);
 
@@ -55,8 +85,8 @@ namespace DeFillet {
 
 
     easy3d::SurfaceMesh* split_component(const easy3d::SurfaceMesh* mesh,
-                         easy3d::SurfaceMesh::FaceProperty<int>& component_labels,
-                         int label);
+                                         easy3d::SurfaceMesh::FaceProperty<int>& component_labels,
+                                         int label);
 
     void save_field(const easy3d::SurfaceMesh* mesh,
                          const std::vector<float>& field,
@@ -66,11 +96,16 @@ namespace DeFillet {
                              const std::vector<int>& fillet_label,
                              const std::string path);
 
-
+    std::vector<int> load_fillet_labels(const std::string& path);
     void save_fillet_labels(std::vector<int>& labels, const std::string& path);
 
 
+    void save_target_normals(std::vector<std::pair<easy3d::vec3, easy3d::vec3>>& tar_normals, std::string path);
+
 
 }
+
+
+
 
 #endif //UTILS_H
