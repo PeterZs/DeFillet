@@ -54,7 +54,18 @@
 This repository contains the official implementation of our SIGGRAPH 2025 paper "DeFillet: Detection and Removal of Fillet Regions in Polygonal CAD Models".
 
 
+
 **Please give a star and cite if you find this repo useful.**
+
+
+
+### 📢 Windows Version Released
+
+The [**Windows Executables**](https://github.com/xiaowuga/DeFillet/releases/tag/v1.0) are now live. 💻
+Feel free to test and provide feedback. 📝
+
+> ⚠️ **Note:** For evaluation only.
+
 
 ## 💻 Platform
 - Windows 11
@@ -120,7 +131,7 @@ The executable target `detector_cli.exe` accepts two types of input: a `.ply` me
 You can modify the `removal_config.json` file to change the input and output folder paths as well as algorithm parameters (configured based on the details in the paper).
 
 ## 💡 Tips
-- The code for <span style="color: red;">distinguishing cylinders from fillets </span> mentioned in the paper has not been released due to stability issues. Given the high geometric similarity between these features, separating them is essentially a semantic segmentation problem, suggesting that deep learning might be a more effective solution.
+- The code for **distinguishing cylinders from fillets** mentioned in the paper has not been released due to stability issues. Given the high geometric similarity between these features, separating them is essentially a semantic segmentation problem, suggesting that deep learning might be a more effective solution.
 - Setting `num_patches = -1` in `detector_config.json` enables the use of the global Voronoi diagram. Due to its superior stability, this approach yields better detection performance for models that differ from the examples shown in Fig. 8 of the paper.
 - The primary parameters to tune in `detector_config.json` are `epsilon` and `radius_thr`. A larger `epsilon` value induces over-segmentation, which improves robustness when dealing with low-resolution meshes. This results in more stable normals during the removal process, ultimately yielding superior results.
 
